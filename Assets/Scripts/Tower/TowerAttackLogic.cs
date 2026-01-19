@@ -8,7 +8,6 @@ public class TowerAttackLogic : MonoBehaviour
     [SerializeField] private GameObject projectilePrefab;
     [SerializeField] private Transform firePoint;
     [SerializeField] private Transform towerHead;
-     [SerializeField]private float towerRange=10f;
      private TowerStates towerStates;
 public UnityEvent OnAttack;
 
@@ -48,7 +47,7 @@ public UnityEvent OnAttack;
     }
    private void HandleAttackLogic()
     {
-        Enemy target = TargetFinder.FindBestEnemyTarget(transform.position, towerRange);
+        Enemy target = TargetFinder.FindBestEnemyTarget(transform.position, towerStats.CurrentRange);
 
         if (target != null)
         {
@@ -105,11 +104,11 @@ public UnityEvent OnAttack;
         }
     }
 
-    private void OnDrawGizmosSelected()
+    /*private void OnDrawGizmosSelected()
     {
         // Визуализация радиуса атаки башни
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(transform.position, towerRange);
+            Gizmos.DrawWireSphere(transform.position, towerStats.CurrentRange);
         
-    }
+    }*/
 }

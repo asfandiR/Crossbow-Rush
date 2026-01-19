@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public abstract class Projectile : MonoBehaviour
 {
@@ -8,6 +9,12 @@ public abstract class Projectile : MonoBehaviour
 
     protected Transform target; // Цель, которую преследуем
     protected float damage;     // Урон, взятый из UpgradeManager
+
+    /// <summary>
+    /// Ключ для возврата объекта в пул. Должен устанавливаться тем, кто спавнит снаряд.
+    /// </summary>
+    public string PoolKey { get; set; }
+    private Coroutine returnToPoolCoroutine;
 
     // ОБЩЕСТВЕННЫЙ МЕТОД: вызывается HeroTurretLogic при создании снаряда
     public virtual void SetTargetAndDamage(Transform newTarget, float newDamage)
@@ -19,7 +26,13 @@ public abstract class Projectile : MonoBehaviour
         if (damage == 0) damage = 10f; 
         
         OnTargetSet();
-        Destroy(gameObject, lifeTime);
+
+        // Оптимизация: вместо уничтожения по времени, запускаем корутину для возврата в пул
+        if (returnToPoolCoroutine != null)
+        {
+            StopCoroutine(returnToPoolCoroutine);
+        }
+        returnToPoolCoroutine = StartCoroutine(ReturnToPoolAfterTime(lifeTime));
     }
 
     protected virtual void OnTargetSet() { }
@@ -29,8 +42,8 @@ public abstract class Projectile : MonoBehaviour
         // 1. Проверяем, существует ли цель
         if (target == null)
         {
-            // Если цель исчезла (умерла), просто летим вперед до самоуничтожения
-           Destroy(gameObject);
+            // Если цель исчезла, возвращаем снаряд в пул
+            ReturnToPool();
             return;
         }
 
@@ -49,7 +62,33 @@ public abstract class Projectile : MonoBehaviour
             enemy.TakeDamage(damage);
         }
         
-        // Уничтожаем снаряд
-        Destroy(gameObject);
+        // Оптимизация: возвращаем снаряд в пул вместо уничтожения
+        ReturnToPool();
+    }
+
+    private IEnumerator ReturnToPoolAfterTime(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        ReturnToPool();
+    }
+
+    protected void ReturnToPool()
+    {
+        // Останавливаем корутину, если она была запущена, чтобы избежать двойного возврата в пул
+        if (returnToPoolCoroutine != null)
+        {
+            StopCoroutine(returnToPoolCoroutine);
+            returnToPoolCoroutine = null;
+        }
+
+        // Проверяем наличие пула и ключа
+        if (ObjectPool.Instance != null && !string.IsNullOrEmpty(PoolKey))
+        {
+            ObjectPool.Instance.ReturnToPool(PoolKey, gameObject);
+        }
+        else
+        {
+            Destroy(gameObject); // Запасной вариант
+        }
     }
 }

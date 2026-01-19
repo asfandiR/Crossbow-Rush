@@ -29,7 +29,11 @@ public class Enemy : HealthSystem
     private float attackTimer = 0f;
     private MainBase mainBase;
     private Collider baseCollider;
+    private HealthSystem currentAttackTarget;
 
+    // --- Optimization ---
+    private float findTargetTimer;
+    private const float FindTargetInterval = 0.2f; // Как часто искать цель (в секундах)
 
     public int CoinsToDrop { get { return coinsToDrop; } private set { coinsToDrop = value; } }
     private void Awake()
@@ -42,7 +46,25 @@ public class Enemy : HealthSystem
     private void Update()
     {
         if (isDead) return;
-        HandleAttack();
+
+        // Оптимизация: поиск цели выполняется по таймеру, а не каждый кадр
+        findTargetTimer -= Time.deltaTime;
+        if (findTargetTimer <= 0f)
+        {
+            UpdateAttackTarget();
+            findTargetTimer = FindTargetInterval;
+        }
+
+        // Логика атаки выполняется каждый кадр, если есть цель
+        if (currentAttackTarget != null && currentAttackTarget.IsAlive)
+        {
+            ProcessAttack(currentAttackTarget);
+        }
+        else if (agent.isStopped) // Если цели нет, а агент остановлен - возобновляем движение
+        {
+            agent.isStopped = false;
+        }
+
         HandleAnimation();
     }
 
@@ -59,59 +81,68 @@ public class Enemy : HealthSystem
         }
     }
 
-    private void HandleAttack()
+    /// <summary>
+    /// Периодически обновляет цель для атаки (стена или база). Вызывается по таймеру.
+    /// </summary>
+    private void UpdateAttackTarget()
     {
-        if (agent == null ) return;
+        if (agent == null || !agent.isOnNavMesh) return;
 
-        Vector3 direction = (agent.nextPosition - transform.position).normalized;
+        // Используем steeringTarget для более точного определения направления движения
+        Vector3 direction = (agent.steeringTarget - transform.position).normalized;
         if (direction == Vector3.zero) direction = transform.forward;
 
+        // Рекомендация: здесь нужно использовать LayerMask для стен (слой 10).
+        // Это изменение нужно вносить в сам TargetFinder.FindWallBlockingPath.
         Wall wallToAttack = TargetFinder.FindWallBlockingPath(transform.position, direction, attackRange);
 
         if (wallToAttack != null && wallToAttack.IsAlive)
         {
-            ProcessAttack(wallToAttack);
+            currentAttackTarget = wallToAttack;
             return;
         }
 
-        // Если стены нет, проверяем базу
+        // Если стены на пути нет, проверяем, не находимся ли мы в радиусе атаки базы
         if (mainBase != null && mainBase.IsAlive)
         {
-            float dist = Vector3.Distance(transform.position, mainBase.transform.position);
+            float dist;
             float rangeCheck = attackRange;
 
             if (baseCollider != null)
             {
-                // Если есть коллайдер, считаем расстояние до ближайшей точки (точнее для больших баз)
                 dist = Vector3.Distance(transform.position, baseCollider.ClosestPoint(transform.position));
             }
             else
             {
-                // Если коллайдера нет, даем запас, так как база может быть большой
+                dist = Vector3.Distance(transform.position, mainBase.transform.position);
                 rangeCheck += 2.0f; 
             }
 
             if (dist <= rangeCheck)
             {
-                ProcessAttack(mainBase);
+                currentAttackTarget = mainBase;
                 return;
             }
         }
 
-        if (!isDead) agent.enabled = true;
-        agent.SetDestination(mainBase.transform.position);
+        // Если в радиусе атаки целей нет
+        currentAttackTarget = null;
     }
 
     private void ProcessAttack(HealthSystem target)
     {
         if (isDead) return;
-        agent.enabled = false;
+        // Оптимизация: используем isStopped вместо отключения агента
+        if (!agent.isStopped) agent.isStopped = true;
 
         attackTimer += Time.deltaTime;
         if (attackTimer >= attackCooldown)
         {
             AttackTarget(target);
-            Debug.Log("Attacking " + target.gameObject.name);
+            // Оптимизация: логирование только в редакторе, чтобы не создавать мусор в билде
+            #if UNITY_EDITOR
+            Debug.Log("Attacking " + target.gameObject.name + " | " + target.CurrentHealth);
+            #endif
         }
     }
 
@@ -144,6 +175,7 @@ public class Enemy : HealthSystem
         isDead = true;
         if (agent != null)
         {
+            agent.isStopped = true;
             agent.enabled = false;
         }
 

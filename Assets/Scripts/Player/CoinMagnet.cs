@@ -6,6 +6,8 @@ public class CoinMagnet : MonoBehaviour
     [Header("Magnet Settings")]
     [SerializeField] private float magnetRadius = 5f;
     [SerializeField] private float attractSpeed = 12f;
+    [Tooltip("Укажите слой, на котором находятся монеты, для оптимизации поиска.")]
+    [SerializeField] private LayerMask coinLayer;
     
     [Header("Optimization")]
     [Tooltip("Как часто проверять наличие монет вокруг (в секундах). Чем выше, тем меньше нагрузка.")]
@@ -35,8 +37,8 @@ public class CoinMagnet : MonoBehaviour
 
     private void ScanForCoins()
     {
-        // Обновляем список монет поблизости без аллокаций
-        int count = Physics.OverlapSphereNonAlloc(transform.position, magnetRadius, _colliderBuffer);
+        // Оптимизация: используем LayerMask, чтобы проверять только объекты на нужном слое
+        int count = Physics.OverlapSphereNonAlloc(transform.position, magnetRadius, _colliderBuffer, coinLayer);
         
         for (int i = 0; i < count; i++)
         {

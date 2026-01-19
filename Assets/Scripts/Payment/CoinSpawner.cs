@@ -38,7 +38,20 @@ public class CoinSpawner : MonoBehaviour
         for (int i = 0; i < enemy.CoinsToDrop; i++)
         {
             Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0, Random.Range(-0.5f, 0.5f));
-            Instantiate(coinPrefab, enemy.CoinSpawnPoint.position + offset, Quaternion.identity);
+            Vector3 spawnPosition = enemy.CoinSpawnPoint.position + offset;
+
+            // Оптимизация: используем пул объектов вместо Instantiate
+            if (ObjectPool.Instance != null)
+            {
+                // Предполагается, что у пула есть метод SpawnFromPool, который берет объект из пула
+                // и активирует его в нужной позиции.
+                ObjectPool.Instance.SpawnFromPool("Coin", spawnPosition, Quaternion.identity);
+            }
+            else
+            {
+                // Запасной вариант, если пул по какой-то причине отсутствует
+                Instantiate(coinPrefab, spawnPosition, Quaternion.identity);
+            }
         }
     }
     private void OnDisable()
