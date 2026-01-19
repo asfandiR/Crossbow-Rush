@@ -64,8 +64,8 @@ public class CannonballProjectile : Projectile
 
         if (explosionEffect != null)
         {
-           explosionEffect.SetActive(true);
-
+           explosionEffect.gameObject.SetActive(true);
+explosionEffect.Play();
         }
 
         Destroy(gameObject);
