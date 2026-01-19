@@ -44,9 +44,9 @@ public abstract class Projectile : MonoBehaviour
     protected virtual void HitTarget()
     {
         // Сначала наносим урон, если цель еще жива
-        if (target != null && target.TryGetComponent(out IDamageable targetHealth))
+        if (target != null && target.TryGetComponent(out Enemy enemy))
         {
-            targetHealth.TakeDamage(damage);
+            enemy.TakeDamage(damage);
         }
         
         // Уничтожаем снаряд
