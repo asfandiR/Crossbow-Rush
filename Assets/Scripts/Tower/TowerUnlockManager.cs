@@ -45,7 +45,7 @@ private void Awake()
 
     private void CheckForUnlock(Tower tower)
     {
-        Debug.Log("Checking for tower unlocks...");
+        //Debug.Log("Checking for tower unlocks...");
         if (AreAllUnlockedTowersMaxLevel())
         {
             UnlockNextAvailableTower();

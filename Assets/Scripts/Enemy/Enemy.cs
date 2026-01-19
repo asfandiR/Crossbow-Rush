@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
@@ -18,11 +19,11 @@ public class Enemy : HealthSystem
     [Header("Attack Settings")]
     [SerializeField] private float attackCooldown = 2f;
     [SerializeField] private float attackDamage = 1f;
+    [SerializeField] private string poolTag = "Enemy";
 
     [Header("Animation Settings")]
     [SerializeField] private Animator animatorController;
     [SerializeField] private float moveAnimationSpeed = 3.0f;
-
 
     private NavMeshAgent agent;
     private bool isDead = false;
@@ -30,12 +31,14 @@ public class Enemy : HealthSystem
     private MainBase mainBase;
     private Collider baseCollider;
     private HealthSystem currentAttackTarget;
+    private Coroutine returnToPoolCoroutine;
 
     // --- Optimization ---
     private float findTargetTimer;
     private const float FindTargetInterval = 0.2f; // Как часто искать цель (в секундах)
 
     public int CoinsToDrop { get { return coinsToDrop; } private set { coinsToDrop = value; } }
+    public string PoolTag => poolTag;
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -46,7 +49,6 @@ public class Enemy : HealthSystem
     private void Update()
     {
         if (isDead) return;
-
         // Оптимизация: поиск цели выполняется по таймеру, а не каждый кадр
         findTargetTimer -= Time.deltaTime;
         if (findTargetTimer <= 0f)
@@ -54,17 +56,15 @@ public class Enemy : HealthSystem
             UpdateAttackTarget();
             findTargetTimer = FindTargetInterval;
         }
-
         // Логика атаки выполняется каждый кадр, если есть цель
-        if (currentAttackTarget != null && currentAttackTarget.IsAlive)
+        if (target != null && target.TryGetComponent<HealthSystem>(out var healthSystem) && healthSystem.IsAlive)
         {
-            ProcessAttack(currentAttackTarget);
+            ProcessAttack(healthSystem);
         }
         else if (agent.isStopped) // Если цели нет, а агент остановлен - возобновляем движение
         {
             agent.isStopped = false;
         }
-
         HandleAnimation();
     }
 
@@ -188,7 +188,59 @@ public class Enemy : HealthSystem
         base.Die();
         GetComponent<Collider>().enabled = false;
         GlobalEventManager.Instance.OnEnemyDied.Invoke(this);
-       
-        Destroy(gameObject, 2f); // Уничтожаем объект через 2 секунды, чтобы дать время анимации смерти проиграться
+        if (ObjectPool.Instance != null && !string.IsNullOrEmpty(poolTag))
+        {
+            if (returnToPoolCoroutine != null)
+            {
+                StopCoroutine(returnToPoolCoroutine);
+            }
+            returnToPoolCoroutine = StartCoroutine(ReturnToPoolAfterDelay(2f));
+        }
+        else
+        {
+            Destroy(gameObject, 2f); // Delay to play death animation.
+        }
+    }    private IEnumerator ReturnToPoolAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (ObjectPool.Instance != null)
+        {
+            ObjectPool.Instance.ReturnToPool(poolTag, gameObject);
+        }
+    }
+
+    public void ResetForPool(Transform baseTransform)
+    {
+        if (returnToPoolCoroutine != null)
+        {
+            StopCoroutine(returnToPoolCoroutine);
+            returnToPoolCoroutine = null;
+        }
+
+        isDead = false;
+        attackTimer = 0f;
+        findTargetTimer = 0f;
+        currentAttackTarget = null;
+
+        SetStartingHealth(MaxHealth);
+
+        if (animatorController != null)
+        {
+            animatorController.SetBool(IsDeadHash, false);
+            animatorController.SetFloat(IsMovingHash, 0f);
+        }
+
+        if (agent == null) agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+        {
+            if (!agent.enabled) agent.enabled = true;
+            agent.isStopped = false;
+            agent.ResetPath();
+        }
+
+        Collider enemyCollider = GetComponent<Collider>();
+        if (enemyCollider != null) enemyCollider.enabled = true;
+
+        SetMainBase(baseTransform);
     }
 }

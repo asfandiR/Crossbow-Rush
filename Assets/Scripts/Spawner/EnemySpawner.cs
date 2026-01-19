@@ -41,9 +41,25 @@ public class EnemySpawner : MonoBehaviour
     {
         if (enemyPrefab != null && spawnPoint != null)
         {
-             GameObject newEnemy = Instantiate(enemyPrefab, spawnPoint.position, spawnPoint.rotation);
-             newEnemy.GetComponent<Enemy>().SetMainBase(mainBase);
-            
+            Enemy prefabEnemy = enemyPrefab.GetComponent<Enemy>();
+            string poolTag = prefabEnemy != null ? prefabEnemy.PoolTag : null;
+
+            GameObject newEnemy = null;
+            if (ObjectPool.Instance != null && !string.IsNullOrEmpty(poolTag))
+            {
+                newEnemy = ObjectPool.Instance.SpawnFromPool(poolTag, spawnPoint.position, spawnPoint.rotation);
+            }
+
+            if (newEnemy == null)
+            {
+                newEnemy = Instantiate(enemyPrefab, spawnPoint.position, spawnPoint.rotation);
+            }
+
+            Enemy enemy = newEnemy.GetComponent<Enemy>();
+            if (enemy != null)
+            {
+                enemy.ResetForPool(mainBase);
+            }
         }
     }
 }
