@@ -5,6 +5,7 @@ public class CannonballProjectile : Projectile
     [Header("Cannonball Settings")]
     [SerializeField] private float arcHeight = 2.0f;
     [SerializeField] private float explosionRadius = 3.0f;
+    [SerializeField] private float projectileLifetime = 2.0f;
     [SerializeField] private ParticleSystem explosionEffect;
 
     private Vector3 startPosition;
