@@ -69,7 +69,7 @@ public class CannonballProjectile : Projectile
            explosionEffect.Play();
         }
 
-        Destroy(gameObject);
+        Destroy(gameObject, projectileLifetime);
     }
 
     private void OnDrawGizmosSelected()
