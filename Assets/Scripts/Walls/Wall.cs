@@ -33,6 +33,7 @@ public class Wall : HealthSystem
        // Destroy(gameObject);
          DisableVisuals();
         DeactivateHealthUI();
+        gameObject.SetActive(false);
     }
     private  void UpdateHealthUI()
     {

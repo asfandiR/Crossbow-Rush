@@ -53,13 +53,13 @@ public class CoinPaymentAnimation : MonoBehaviour
 
         float density = Mathf.Lerp(1f, 0.35f, (float)coinsCount / maxCoinsToSpawn);
 
-        float spawnInterval = (animationDuration * density) / coinsCount;
+        float spawnInterval = animationDuration / coinsCount;
         float flightDuration = animationDuration - spawnInterval * (coinsCount - 1);
 
         for (int i = 0; i < coinsCount; i++)
         {
-            SpawnSingleCoin(start, target, flightDuration);
-            yield return new WaitForSeconds(spawnInterval);
+            SpawnSingleCoin(start, target, animationDuration);
+            yield return null;//new WaitForSeconds(spawnInterval);
         }
     }
 
@@ -82,8 +82,7 @@ public class CoinPaymentAnimation : MonoBehaviour
     private IEnumerator MoveCoinRoutine(GameObject coin, Transform startPos, Transform target, float duration)
     {
         float elapsed = 0f;
-        Vector3 randomOffset = new Vector3(Random.Range(-0.25f, 0.25f), 0, Random.Range(-0.25f, 0.25f));
-        Vector3 actualStart = startPos.position + randomOffset;
+        Vector3 actualStart = startPos.position ;
 
         while (elapsed < duration)
         {

@@ -7,33 +7,35 @@ using UnityEngine.Events;
 [RequireComponent(typeof(NavMeshAgent))]
 public class Enemy : HealthSystem
 {
+    private static readonly int IsMovingHash = Animator.StringToHash("Walk");
+    private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
     public Transform CoinSpawnPoint;
 
     [SerializeField] private int coinsToDrop = 1;
     [SerializeField] private float attackRange = 0.3f;
-    [SerializeField]private Transform target;
+    [SerializeField] private Transform target;
     
     [Header("Attack Settings")]
     [SerializeField] private float attackCooldown = 2f;
     [SerializeField] private float attackDamage = 1f;
 
     [Header("Animation Settings")]
-    [SerializeField] private Animator enemyAnimator;
+    [SerializeField] private Animator animatorController;
     [SerializeField] private float moveAnimationSpeed = 3.0f;
 
-    public int CoinsToDrop { get { return coinsToDrop; } private set { coinsToDrop = value; } }
 
     private NavMeshAgent agent;
     private bool isDead = false;
     private float attackTimer = 0f;
+    private MainBase mainBase;
+    private Collider baseCollider;
 
-    private static readonly int IsMovingHash = Animator.StringToHash("Walk");
-    private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
 
+    public int CoinsToDrop { get { return coinsToDrop; } private set { coinsToDrop = value; } }
     private void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
-        if (enemyAnimator == null) 
+        if (animatorController == null) 
         Debug.LogError("Please assign Animator pidaras");
     }
 
@@ -46,6 +48,11 @@ public class Enemy : HealthSystem
 
     public void SetMainBase(Transform baseTransform)
     {
+        if (baseTransform != null)
+        {
+            mainBase = baseTransform.GetComponent<MainBase>();
+            if (mainBase != null) baseCollider = mainBase.GetComponent<Collider>();
+        }
         if (agent != null && agent.isOnNavMesh)
         {
             agent.SetDestination(baseTransform.position);
@@ -61,47 +68,73 @@ public class Enemy : HealthSystem
 
         Wall wallToAttack = TargetFinder.FindWallBlockingPath(transform.position, direction, attackRange);
 
-        if (wallToAttack == null)
+        if (wallToAttack != null && wallToAttack.IsAlive)
         {
-            if (!isDead) agent.enabled = true;
+            ProcessAttack(wallToAttack);
             return;
         }
 
-        if (wallToAttack.IsAlive)
+        // Если стены нет, проверяем базу
+        if (mainBase != null && mainBase.IsAlive)
         {
-            if (isDead)
-            return; 
-            agent.enabled = false;
+            float dist = Vector3.Distance(transform.position, mainBase.transform.position);
+            float rangeCheck = attackRange;
 
-            attackTimer += Time.deltaTime;
-            if (attackTimer >= attackCooldown)
+            if (baseCollider != null)
             {
-                AttackTarget(wallToAttack);
-                Debug.Log("Attacking " + wallToAttack.gameObject.name);
+                // Если есть коллайдер, считаем расстояние до ближайшей точки (точнее для больших баз)
+                dist = Vector3.Distance(transform.position, baseCollider.ClosestPoint(transform.position));
             }
+            else
+            {
+                // Если коллайдера нет, даем запас, так как база может быть большой
+                rangeCheck += 2.0f; 
+            }
+
+            if (dist <= rangeCheck)
+            {
+                ProcessAttack(mainBase);
+                return;
+            }
+        }
+
+        if (!isDead) agent.enabled = true;
+        agent.SetDestination(mainBase.transform.position);
+    }
+
+    private void ProcessAttack(HealthSystem target)
+    {
+        if (isDead) return;
+        agent.enabled = false;
+
+        attackTimer += Time.deltaTime;
+        if (attackTimer >= attackCooldown)
+        {
+            AttackTarget(target);
+            Debug.Log("Attacking " + target.gameObject.name);
         }
     }
 
-    private void AttackTarget(Wall wall)
+    private void AttackTarget(HealthSystem target)
     {
-        if (wall != null && wall.IsAlive)
+        if (target != null && target.IsAlive)
         {
-            wall.TakeDamage(attackDamage);
+            target.TakeDamage(attackDamage);
         }
         attackTimer = 0f;
     }
 
     private void HandleAnimation()
     {
-        if (enemyAnimator == null) return;
+        if (animatorController == null) return;
 
         if (agent != null && agent.velocity.magnitude > 0.1f)
         {
-            enemyAnimator.SetFloat(IsMovingHash, moveAnimationSpeed);
+            animatorController.SetFloat(IsMovingHash, moveAnimationSpeed);
         }
         else
         {
-            enemyAnimator.SetFloat(IsMovingHash, 0f);
+            animatorController.SetFloat(IsMovingHash, 0f);
         }
     }
 
@@ -114,10 +147,10 @@ public class Enemy : HealthSystem
             agent.enabled = false;
         }
 
-        if (enemyAnimator != null)
+        if (animatorController != null)
         {
-            enemyAnimator.SetFloat(IsMovingHash, 0f);
-            enemyAnimator.SetBool(IsDeadHash, true);
+            animatorController.SetFloat(IsMovingHash, 0f);
+            animatorController.SetBool(IsDeadHash, true);
         }
 
         base.Die();

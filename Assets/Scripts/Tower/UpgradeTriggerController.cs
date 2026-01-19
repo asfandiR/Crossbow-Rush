@@ -11,6 +11,7 @@ public class UpgradeTriggerController : MonoBehaviour
     private UpgradableStats towerStats;
 
     private float localTimer = 0f;
+    private bool animationStarted;
     private TowerBuilder towerBuilder;
      private ProgressBarController progressController;
     
@@ -79,25 +80,41 @@ public class UpgradeTriggerController : MonoBehaviour
 
         if (canUpgrade)
         {
+            if (MoneyManager.Instance.CurrentCoinBalance < targetCost)
+            {
+                localTimer = 0f;
+                progressController.SetProgress(0f);
+                animationStarted = false;
+                return;
+            }
+
             localTimer += Time.deltaTime;
            
-            if(localTimer >= startSensitivity)
+            if (localTimer < startSensitivity)
             {
-                float progress = Mathf.Clamp01(localTimer /( startSensitivity*2));
-                progressController.SetProgress(progress);
-                
+                progressController.SetProgress(0f);
             }
-            if (localTimer >= startSensitivity*2)
+            else
             {
-                if (MoneyManager.Instance.TrySpend(targetCost))
+                if (!animationStarted)
                 {
-               CoinPaymentAnimation.Instance.PlayPaymentAnimation(other.transform, transform, targetCost);
-                    CompleteTransaction();
-                    OnUpgradeTriggered?.Invoke();
+                    CoinPaymentAnimation.Instance.PlayPaymentAnimation(other.transform, transform, targetCost);
+                    animationStarted = true;
                 }
-                else
+
+                float progress = Mathf.Clamp01((localTimer - startSensitivity) / startSensitivity);
+                progressController.SetProgress(progress);
+
+                if (localTimer >= startSensitivity * 2)
                 {
-                    localTimer = startSensitivity; // Держим таймер на максимуме, пока игрок не уйдет или не накопит денег
+                    if (MoneyManager.Instance.TrySpend(targetCost))
+                    {
+                        CompleteTransaction();
+                        OnUpgradeTriggered?.Invoke();
+                    }
+                    localTimer = 0f;
+                    progressController.SetProgress(0f);
+                    animationStarted = false;
                 }
             }
         }
@@ -135,6 +152,7 @@ public class UpgradeTriggerController : MonoBehaviour
         {
             localTimer = 0f;
             progressController.SetProgress(0f);
+            animationStarted = false;
         }
     }  
 }
