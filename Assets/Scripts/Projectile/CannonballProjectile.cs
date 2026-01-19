@@ -5,7 +5,7 @@ public class CannonballProjectile : Projectile
     [Header("Cannonball Settings")]
     [SerializeField] private float arcHeight = 2.0f;
     [SerializeField] private float explosionRadius = 3.0f;
-    [SerializeField] private GameObject explosionEffect;
+    [SerializeField] private ParticleSystem explosionEffect;
 
     private Vector3 startPosition;
     private float progress = 0f;
@@ -64,7 +64,8 @@ public class CannonballProjectile : Projectile
 
         if (explosionEffect != null)
         {
-            Instantiate(explosionEffect, transform.position, Quaternion.identity);
+           explosionEffect.SetActive(true);
+
         }
 
         Destroy(gameObject);
